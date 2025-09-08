@@ -1,22 +1,8 @@
-package org.example.ch04;
+package org.example.ch05;
 
-import org.example.ch04.Chunk.BinaryChunk;
-import org.example.ch04.Chunk.LocVar;
-import org.example.ch04.Chunk.Prototype;
-import org.example.ch04.Chunk.Upvalue;
-import org.example.ch04.api.LuaState;
-import org.example.ch04.api.LuaType;
-import org.example.ch04.state.LuaStateImpl;
-import org.example.ch04.vm.Instruction;
-import org.example.ch04.vm.OpCode;
-
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-
-import static org.example.ch04.vm.Instruction.OpName;
-import static org.example.ch04.vm.Instruction.getOpCode;
-import static org.example.ch04.vm.OpArgMask.*;
+import org.example.ch05.api.LuaState;
+import org.example.ch05.api.LuaType;
+import org.example.ch05.state.LuaStateImpl;
 
 
 public class main {
