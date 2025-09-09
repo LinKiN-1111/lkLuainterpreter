@@ -4,28 +4,28 @@ import org.example.ch05.api.LuaState;
 import org.example.ch05.api.LuaType;
 import org.example.ch05.state.LuaStateImpl;
 
+import static org.example.ch05.api.ArithOp.*;
+import static org.example.ch05.api.CmpOp.*;
+
 
 public class main {
     public static void main(String[] args) {
         LuaState ls = new LuaStateImpl();
+        ls.pushInteger(1);
+        ls.pushString("2.0");
+        ls.pushString("3.0");
+        ls.pushNumber(4.0);
+        printStack(ls);
 
-        ls.pushBoolean(true);
+        ls.arith(LUA_OPADD);
         printStack(ls);
-        ls.pushInteger(10);
+        ls.arith(LUA_OPBNOT);
         printStack(ls);
-        ls.pushNil();
+        ls.len(2);
         printStack(ls);
-        ls.pushString("hello");
+        ls.concat(3);
         printStack(ls);
-        ls.pushValue(-4);
-        printStack(ls);
-        ls.replace(3);
-        printStack(ls);
-        ls.setTop(6);
-        printStack(ls);
-        ls.remove(-3);
-        printStack(ls);
-        ls.setTop(-5);
+        ls.pushBoolean(ls.compare(1, 2, LUA_OPEQ));
         printStack(ls);
     }
 
@@ -54,5 +54,4 @@ public class main {
         }
         System.out.println();
     }
-
 }

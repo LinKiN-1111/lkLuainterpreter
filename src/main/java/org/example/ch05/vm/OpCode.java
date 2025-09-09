@@ -1,7 +1,7 @@
 package org.example.ch05.vm;
 
-import static org.example.ch04.vm.OpArgMask.*;
-import static org.example.ch04.vm.OpMode.*;
+import static org.example.ch05.vm.OpArgMask.*;
+import static org.example.ch05.vm.OpMode.*;
 
 
 public enum OpCode {

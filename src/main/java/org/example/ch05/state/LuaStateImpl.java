@@ -1,9 +1,12 @@
 package org.example.ch05.state;
 
+import org.example.ch05.api.ArithOp;
+import org.example.ch05.api.CmpOp;
 import org.example.ch05.api.LuaState;
 import org.example.ch05.api.LuaType;
 
 import static java.lang.System.exit;
+import static org.example.ch05.state.LuaValue.converToFloat;
 
 
 //这里面的操作基本上都没判断溢出的情况，因为这个情况在栈中判断了
@@ -149,7 +152,7 @@ public class LuaStateImpl implements LuaState {
     //
     @Override
     public LuaType type(int idx) {
-        if(stack.isValia(idx)){
+        if(stack.isValid(idx)){
             Object o = stack.get(idx);
             return LuaValue.typeOf(o);
         }
@@ -194,7 +197,7 @@ public class LuaStateImpl implements LuaState {
     @Override
     public boolean isString(int idx) {
         LuaType type = type(idx);
-        return type == LuaType.LUA_TSTRING;
+        return type == LuaType.LUA_TSTRING || type == LuaType.LUA_TNUMBER;   //String的范围扩大了
     }
 
     @Override
@@ -238,10 +241,7 @@ public class LuaStateImpl implements LuaState {
     @Override
     public Long toIntegerX(int idx) {
         Object val = stack.get(idx);
-        if(val instanceof Long){
-            return (Long) val;
-        }
-        return null;
+        return LuaValue.convertToInteger(val);
     }
 
     @Override
@@ -253,13 +253,7 @@ public class LuaStateImpl implements LuaState {
     @Override
     public Double toNumberX(int idx) {
         Object val = stack.get(idx);
-        if (val instanceof Double) {
-            return (Double) val;
-        } else if (val instanceof Long) {
-            return ((Long) val).doubleValue();
-        } else {
-            return null;
-        }
+        return converToFloat(val);
     }
 
     @Override
@@ -301,6 +295,77 @@ public class LuaStateImpl implements LuaState {
     public void pushString(String s) {
         stack.push(s);
     }
+
+
+    //
+    @Override
+    public void arith(ArithOp op) {
+        Object y = stack.pop();
+        Object x = null;
+        if (op != ArithOp.LUA_OPUNM && op != ArithOp.LUA_OPBNOT){
+             x = stack.pop();
+        }else {
+             x = y;
+        }
+
+        Object result = Arithmetic.arith(x, y, op);
+        if (result != null) {
+            stack.push(result);
+        } else {
+            throw new RuntimeException("arithmetic error!");
+        }
+
+    }
+
+    @Override
+    public boolean compare(int idx1, int idx2, CmpOp op) {
+        if (!stack.isValid(idx1) || !stack.isValid(idx2)) {
+            return false;
+        }
+
+        Object a = stack.get(idx1);
+        Object b = stack.get(idx2);
+        switch (op) {
+            case LUA_OPEQ: return Comparison.eq(a, b);
+            case LUA_OPLT: return Comparison.lt(a, b);
+            case LUA_OPLE: return Comparison.le(a, b);
+            default: throw new RuntimeException("invalid compare op!");
+        }
+    }
+
+    /* miscellaneous functions */
+    @Override
+    public void len(int idx) {
+        //暂时只考虑字符串长度
+        Object val = stack.get(idx);
+        if (val instanceof String) {
+            pushInteger(((String) val).length());
+        } else {
+            throw new RuntimeException("length error!");
+        }
+    }
+
+
+    //不知道这里为什么只能转换string,但是lua理论上可以拼接字符串和数字的....
+    @Override
+    public void concat(int n) {
+        if (n == 0) {
+            stack.push("");
+        } else if (n >= 2) {
+            for (int i = 1; i < n; i++) {
+                if (isString(-1) && isString(-2)) {
+                    String s2 = toString(-1);
+                    String s1 = toString(-2);
+                    pop(2);
+                    pushString(s1 + s2);
+                    continue;
+                }
+                throw new RuntimeException("concatenation error!");
+            }
+        }
+        // n == 1, do nothing
+    }
+
 
     //======== temp ====
     public void printStackState(){

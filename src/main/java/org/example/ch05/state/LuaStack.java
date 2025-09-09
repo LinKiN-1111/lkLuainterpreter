@@ -39,7 +39,7 @@ public class LuaStack {
     }
 
     //判断这个索引是否合法
-    public boolean isValia(int index){
+    public boolean isValid(int index){
         int absIdx = absIndex(index);
         return absIdx > 0 && absIdx <= slots.size() ;
     }
@@ -48,7 +48,7 @@ public class LuaStack {
     public Object get(int index){
         int absIdx = absIndex(index);
         //isValia是对传入的进行判断的
-        if(isValia(index)){
+        if(isValid(index)){
             return slots.get(absIdx-1);    //lua索引对应到stack中需要-1
         }
 
@@ -59,7 +59,7 @@ public class LuaStack {
     //set根据索引往栈里面写入
     public boolean set(int index,Object val){
         int absIdx = absIndex(index);
-        if(isValia(index)){
+        if(isValid(index)){
             slots.set(absIdx-1, val);
             return true;
         }
@@ -74,7 +74,7 @@ public class LuaStack {
             exit(-1);
         }
 
-        if(!isValia(from) || !isValia(to)){
+        if(!isValid(from) || !isValid(to)){
             System.out.println("LuaStack reverse failed !isValia(from) || !isValia(to)");
             exit(-1);
         }
@@ -87,4 +87,5 @@ public class LuaStack {
     public void printState(){
         System.out.println(slots.toString());
     }
+
 }
