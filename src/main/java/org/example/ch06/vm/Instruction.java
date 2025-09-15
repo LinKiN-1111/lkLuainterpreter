@@ -1,11 +1,10 @@
-package org.example.ch03.vm;
+package org.example.ch06.vm;
 
-
+//该类定义了所有的指令特征
 public class Instruction {
 
     public static final int MAXARG_Bx = (1 << 18) - 1;   // 262143
     public static final int MAXARG_sBx = MAXARG_Bx >> 1; // 131071
-
 
     //提取操作码
     public static OpCode getOpCode(long i){
@@ -14,9 +13,9 @@ public class Instruction {
 
     public static int[] ABC(long i){
         int[] result = new int[3];
-        int A = (int)(i >> 6) & 0xFF;
-        int C = (int)(i >> 14) & 0x1FF;
-        int B = (int)(i >> 23) & 0x1FF;
+        int A = ((int)i >> 6) & 0xFF;
+        int C = ((int)i >> 14) & 0x1FF;
+        int B = ((int)i >> 23) & 0x1FF;
         result[0] = A;
         result[1] = B;
         result[2] = C;
@@ -26,25 +25,25 @@ public class Instruction {
     //返回iABx模式的参数
     public static int[] ABx(long i){
         int[] result = new int[2];
-        int A = (int)(i >> 6) & 0xFF;
-        int B = (int)(i >> 14);
+        int A = ((int)i >> 6) & 0xFF;
+        int Bx = ((int)i >>> 14);
         result[0] = A;
-        result[1] = B;
+        result[1] = Bx;
         return result;
     }
 
     public static int[] AsBx(long i){
         int[] result = new int[2];
-        int A = (int)(i >> 6) & 0xFF;
-        int sB = (int)(i >> 14) - MAXARG_sBx;   //书上这么定义的,我也不清楚具体为什么
+        int A = ((int)i >> 6) & 0xFF;
+        int sBx = ((int)i >>> 14) - MAXARG_sBx;   //书上这么定义的,我也不清楚具体为什么
         result[0] = A;
-        result[1] = sB;
+        result[1] = sBx;
         return result;
     }
 
     public static int[] Ax(long i){
         int [] result = new int[1];
-        int A = (int)(i >> 6);
+        int A = ((int)i >>> 6);
         result[0] = A;
         return result;
     }
