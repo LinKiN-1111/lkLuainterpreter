@@ -1,10 +1,9 @@
-package org.example.ch07.state;
+package org.example.ch08.state;
 
-import org.example.ch07.api.LuaType;
-import org.example.ch07.number.LuaMath;
-import org.example.ch07.number.LuaParser;
+import org.example.ch08.api.LuaType;
+import org.example.ch08.number.LuaParser;
 
-import static org.example.ch07.api.LuaType.*;
+import static org.example.ch08.api.LuaType.*;
 
 //这里的意思好像是说将java类型转化为lua类型
 public class LuaValue {
@@ -21,6 +20,8 @@ public class LuaValue {
             return LUA_TSTRING;
         } else if (val instanceof LuaTable) {
             return LUA_TTABLE;
+        } else if (val instanceof Closure) {
+            return LUA_TFUNCTION;
         } else {
             throw new RuntimeException("TODO");
         }

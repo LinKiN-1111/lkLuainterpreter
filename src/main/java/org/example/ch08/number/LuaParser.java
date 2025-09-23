@@ -1,4 +1,4 @@
-package org.example.ch07.number;
+package org.example.ch08.number;
 
 //负责处理字符串解析的工作
 public class LuaParser {

@@ -1,4 +1,4 @@
-package org.example.ch07.number;
+package org.example.ch09.number;
 
 import static java.lang.System.exit;
 

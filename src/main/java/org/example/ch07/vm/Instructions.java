@@ -2,16 +2,18 @@ package org.example.ch07.vm;
 
 import org.example.ch07.api.ArithOp;
 import org.example.ch07.api.CmpOp;
+import org.example.ch07.api.LuaType;
 import org.example.ch07.api.LuaVM;
 
 import static java.lang.System.exit;
 import static org.example.ch07.api.ArithOp.*;
 import static org.example.ch07.api.CmpOp.*;
+import static org.example.ch07.api.LuaType.*;
 
 //该类实现了所有的指令操作,例如运算符指令,MOVE LOAD FOR等指令
 public class Instructions {
     //由于Lua的寄存器好像也是从0开始的,导致这里寄存器的索引需要+1...其它的索引可以不管
-
+    public static final int LFIELDS_PER_FLUSH = 50;
 
     // R(A) := R(B)   move指令虽然只用了两个寄存器,但是确实使用的是ABC模式
     public static void move(long ins, LuaVM vm) {
@@ -192,10 +194,24 @@ public class Instructions {
         }
     }
 
+    // R(A)-=R(A+2); pc+=sBx
     public static void forPrep(long ins, LuaVM vm) {
         int[] register = Instruction.AsBx(ins);
         int A = register[0] + 1;
         int sBX = register[1];
+
+        if (vm.type(A) == LUA_TSTRING) {
+            vm.pushNumber(vm.toNumber(A));
+            vm.replace(A);
+        }
+        if (vm.type(A+1) == LUA_TSTRING) {
+            vm.pushNumber(vm.toNumber(A + 1));
+            vm.replace(A + 1);
+        }
+        if (vm.type(A+2) == LUA_TSTRING) {
+            vm.pushNumber(vm.toNumber(A + 2));
+            vm.replace(A + 2);
+        }
 
         vm.pushValue(A);
         vm.pushValue(A+2);
@@ -224,4 +240,59 @@ public class Instructions {
             vm.copy(A, A+3);
         }
     }
+
+
+    /* table ins */
+    // R(A) := {} (size = B,C)
+    public static void newTable(long ins, LuaVM vm) {
+        int[] register = Instruction.ABC(ins);
+        int A = register[0] + 1;  //寄存器
+        int B = register[1];  //narry
+        int C = register[2];  //nRec
+        vm.createTable(FPB.fb2int(B), FPB.fb2int(C));   //创建一个Table对象放入栈顶
+        vm.replace(A);          //将栈顶的table对象放置到A寄存器
+    }
+
+    // R(A) := R(B)[RK(C)]
+    public static void getTable(long ins, LuaVM vm) {
+        int[] register = Instruction.ABC(ins);
+        int A = register[0] + 1;   //target
+        int B = register[1] + 1;   //table
+        int C = register[2] ;   //index
+        vm.getRK(C);            //推进栈顶
+        LuaType table = vm.getTable(B); //从table中获取,然后放入到栈顶
+        vm.replace(A);
+    }
+
+    // R(A)[RK(B)] := RK(C)
+    public static void setTable(long ins, LuaVM vm) {
+        int[] register = Instruction.ABC(ins);
+        int A = register[0] + 1;
+        int B = register[1];
+        int C = register[2];
+        vm.getRK(B);        //key推进栈顶     后出key
+        vm.getRK(C);        //value推进栈顶   因为先出value
+        vm.setTable(A);
+    }
+
+    // R(A)[(C-1)*FPF+i] := R(A+i), 1 <= i <= B
+    public static void setList(long ins, LuaVM vm) {
+        int[] register = Instruction.ABC(ins);
+        int A =  register[0] + 1;
+        int B = register[1];
+        int C = register[2];
+        if(C > 0){
+            C = C - 1;
+        }else{
+            C = Instruction.ABx(vm.fetch())[1];  //EXTRAARG指令中指定
+        }
+        int idx = C * LFIELDS_PER_FLUSH;
+        for (int j = 1; j <= B; j++) {
+            idx++;
+            vm.pushValue(A + j);
+            vm.setI(A, idx);
+        }
+    }
+
+
 }

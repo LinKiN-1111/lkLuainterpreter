@@ -1,25 +1,28 @@
-package org.example.ch07.state;
+package org.example.ch08.state;
 
-import org.example.ch07.Chunk.Prototype;
-import org.example.ch07.api.*;
+import org.example.ch08.vm.Instruction;
+import org.example.ch08.Chunk.BinaryChunk;
+import org.example.ch08.Chunk.Prototype;
+import org.example.ch08.api.*;
+import org.example.ch08.vm.OpCode;
+
+import java.util.Collections;
+import java.util.List;
 
 import static java.lang.System.exit;
-import static org.example.ch07.state.LuaValue.converToFloat;
-import static org.example.ch07.state.LuaValue.typeOf;
+import static org.example.ch08.api.ThreadStatus.*;
+import static org.example.ch08.state.LuaValue.converToFloat;
+import static org.example.ch08.state.LuaValue.typeOf;
 
 
 //这里面的操作基本上都没判断溢出的情况，因为这个情况在栈中判断了
 public class LuaStateImpl implements LuaState, LuaVM {
     //注意，这里的操作就和LUA的是一样的了，需要以1作为基地址
     private LuaStack stack;
-    private long pc;                     //程序计数器
-    private Prototype prototype;       //保存函数原型
 
-    //增加了pc和Prototype之后,new也要改一下
-    public LuaStateImpl(Prototype prototype) {
+    //在ch08中将proto交由stack实现之后，整个解释器就直接新建一个LuaStack即可
+    public LuaStateImpl() {
         stack = new LuaStack(20);
-        pc = 0;
-        this.prototype = prototype;
     }
 
     //返回栈顶的索引
@@ -109,24 +112,24 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //settop方法将栈顶索引设置为指定值,也就是说多退少补
     @Override
     public void setTop(int idx) {
-        int i = stack.absIndex(idx);
-        if(i<=0){
-            System.out.println("setTop error! index is : " + i);
-            exit(0);
+        int newTop = stack.absIndex(idx);
+        if(newTop<=0){
+            throw new RuntimeException("stack underflow!");
         }
         //不做处理
-        if(i==stack.top()){
+        if(newTop==stack.top()){
             return;
         }
         //添加nil
-        while(i > stack.top()) {
+        while(newTop > stack.top()) {
             pushNil();
         }
 
         //删除多余的项
-        while(i < stack.top()) {
+        while(newTop < stack.top()) {
             stack.pop();
         }
+
     }
 
     //将给定的Lua类型转换换成对应的字符串表示
@@ -157,11 +160,8 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //
     @Override
     public LuaType type(int idx) {
-        if(stack.isValid(idx)){
-            Object o = stack.get(idx);
-            return LuaValue.typeOf(o);
-        }
-        return LuaType.LUA_TNONE;
+        Object o = stack.get(idx);
+        return LuaValue.typeOf(o);
     }
 
     @Override
@@ -376,20 +376,20 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //======== 实现LuaVM接口 ========
     @Override
     public long getPC() {
-        return this.pc;
+        return this.stack.pc;
     }
 
     @Override
     public void addPC(int n) {
-        this.pc += n;
+        this.stack.pc += n;
     }
 
     //这里有些和书上不一样,本质原因是因为我很多字段用的是long来存储,书中用的是int来存储,所以在写代码的时候着重观察这两个情况
     @Override
     public long fetch() {
-        long[] codes = this.prototype.getCode();
-        long code = codes[(int) this.pc];
-        this.pc++;     //可以回看结构解析中的code,code是以一个数组的形式存储的,而且其是定长的,所以只要往后指一个,就能获取到该code的long形式
+        long[] codes = this.stack.closure.getProto().getCode();
+        long code = codes[(int) this.stack.pc];
+        this.stack.pc++;     //可以回看结构解析中的code,code是以一个数组的形式存储的,而且其是定长的,所以只要往后指一个,就能获取到该code的long形式
         return code;
     }
 
@@ -397,7 +397,7 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //从常量表中获取一个值,然后推入栈顶
     @Override
     public void getConst(int idx) {
-        Object[] constants = this.prototype.getConstants();
+        Object[] constants = this.stack.closure.getProto().getConstants();
         Object constant = constants[idx];
         stack.push(constant);
     }
@@ -438,9 +438,9 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //从表里取值的方法做一层抽象,以便复用
     private LuaType getTable(Object table, Object index) {
         if(table instanceof LuaTable) {
-            Object o = ((LuaTable) table).get(index);
-            stack.push(o);
-            return typeOf(o);
+            Object v = ((LuaTable) table).get(index);
+            stack.push(v);
+            return typeOf(v);
         }
         throw new RuntimeException("getTable error!");
     }
@@ -491,9 +491,151 @@ public class LuaStateImpl implements LuaState, LuaVM {
         setTable(t,i,value);
     }
 
-    //   tmp
-    public void printStackState(){
-        stack.printState();
+    //只是实现将载入的chunk放入到栈中
+    @Override
+    public ThreadStatus load(byte[] chunk, String chunkName, String mode) {
+        try {
+            Prototype prototype = BinaryChunk.unDump(chunk);
+            Closure closure = new Closure(prototype);
+            this.stack.push(closure);
+        }catch (Exception e) {
+            e.printStackTrace();
+        }
+        return LUA_OK;
     }
 
+    //完成对Lua函数进行调用,在执行call方法之前,必须将被调用函数推入栈顶,然后把参数值依次推入栈顶
+    //结束后,推入栈顶的是返回值,第一个参数是传递给被调用函数的参数刷量,第二个参数指定需要的返回值数量(多退少补)
+    @Override
+    public void call(int nArgs, int nResults) {
+        if(stack.isValid(-(nArgs+1))){
+            Object o = stack.get(-(nArgs + 1));
+            if(o instanceof Closure){
+                Closure closure = (Closure) o;
+                System.out.printf("call %s<%d,%d>\n", closure.getProto().getSource(),
+                        closure.getProto().getLineDefined(),closure.getProto().getLastLineDefined());
+                callLuaClosure(nArgs, nResults, closure);
+            }else {
+                throw new RuntimeException("call error!");
+            }
+        }else {
+            throw new RuntimeException("call error!");
+        }
+
+    }
+
+    private void callLuaClosure(int nArgs, int nResults,Closure closure) {
+        //这部分的操作目的是获取执行函数需要的寄存器数量，定义函数时声明的固定参数数量以及是否是vararg函数
+        //然后根据寄存器数量创建栈空间,并把闭包和调用帧联系起来
+        byte nRegs = closure.getProto().getMaxStackSize();  //获取寄存器数量
+        byte nParams = closure.getProto().getNumParams();  //获取该函数的参数数量
+        byte isVarargByte = closure.getProto().getIsVararg(); //判断是否是可变参数函数
+        boolean isVararg = (isVarargByte == 1);
+
+        LuaStack newLuaStack = new LuaStack(nRegs + 20);   //新建一个新的stack
+        newLuaStack.closure =  closure;                 //指向当前解析出来的闭包
+
+        List<Object> funcAndArgs = this.stack.popN(nArgs + 1);
+        newLuaStack.pushN(funcAndArgs.subList(1, funcAndArgs.size()), nParams);
+        if(nArgs > nParams && isVararg) {
+            newLuaStack.varargs = funcAndArgs.subList(1 + nParams, funcAndArgs.size());
+        }
+
+        this.pushLuaStack(newLuaStack);
+        //这里操作的是新的栈
+        this.setTop(nRegs);
+        this.runLuaClosure();
+        this.popLuaStack();
+
+        // return results
+        if (nResults != 0) {
+            List<Object> results = newLuaStack.popN(newLuaStack.top() - nRegs);
+            //stack.check(results.size())
+            stack.pushN(results, nResults);
+        }
+
+    }
+
+    private void runLuaClosure() {
+        for(;;){
+            long ins = fetch();
+            OpCode opCode = Instruction.getOpCode(ins);
+//            if (opCode != org.example.ch08.vm.OpCode.RETURN) {
+//                System.out.printf("[%02d] %-8s \n", this.stack.pc, opCode.name());
+//            }
+            opCode.getAction().execute((int)ins,this);
+//            printStack();
+            if (opCode == OpCode.RETURN) {
+                break;
+            }
+        }
+    }
+
+    @Override
+    public int registerCount() {
+        return (int)this.stack.closure.getProto().getMaxStackSize();
+    }
+
+    @Override
+    public void loadVararg(int n) {
+
+        List<Object> varargs = stack.varargs != null
+                ? stack.varargs : Collections.emptyList();
+        if(n < 0){
+            n = this.stack.varargs.size();
+        }
+
+        this.stack.pushN(varargs,n);
+
+    }
+
+
+    @Override
+    public void loadProto(int idx) {
+        Prototype proto = this.stack.closure.getProto().getProtos()[idx];
+        Closure closure = new Closure(proto);
+        this.stack.push(closure);
+    }
+
+    //简单理解一下，每个函数对应一个栈，当前虚拟机接收了这个函数之后，生成了一个新的stack
+    //这个新的stack的前一个stack就是当前的stack，然后虚拟机转为执行传入的stack
+    public void pushLuaStack(LuaStack stack) {
+        stack.prev = this.stack;
+        this.stack = stack;
+    }
+
+    //去除顶部的stack
+    private void popLuaStack() {
+        LuaStack top = this.stack;
+        this.stack = top.prev;
+        top.prev = null;
+    }
+
+    //   tmp
+    public void printStack() {
+        int top = this.getTop();
+
+        for (int i = 1; i <= top; i++) {
+            LuaType t = this.type(i);
+            switch (t) {
+                case LUA_TBOOLEAN:
+                    System.out.printf("[%b]", this.toBoolean(i));
+                    break;
+                case LUA_TNUMBER:
+                    if (this.isInteger(i)) {
+                        System.out.printf("[%d]", this.toInteger(i));
+                    } else {
+                        System.out.printf("[%f]", this.toNumber(i));
+                    }
+                    break;
+                case LUA_TSTRING:
+                    System.out.printf("[\"%s\"]", this.toString(i));
+                    break;
+                default: // other values
+                    System.out.printf("[%s]", this.typeName(t));
+                    break;
+            }
+        }
+        System.out.println();
+    }
 }

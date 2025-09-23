@@ -15,7 +15,7 @@ import java.nio.file.Paths;
 
 public class main {
     public static void main(String[] args) throws Exception {
-        String test = "C:\\Users\\linkin\\OneDrive\\luainterpreter\\lua\\ch06\\luac.out";
+        String test = "C:\\Users\\linkin\\OneDrive\\luainterpreter\\lua\\ch07\\luac.out";
         byte[] data = Files.readAllBytes(Paths.get(test));
         Prototype proto = BinaryChunk.unDump(data);
         luaMain(proto);

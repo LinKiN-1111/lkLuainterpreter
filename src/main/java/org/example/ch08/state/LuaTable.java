@@ -1,13 +1,11 @@
-package org.example.ch07.state;
+package org.example.ch08.state;
 
-import org.example.ch07.number.LuaParser;
+import org.example.ch08.number.LuaParser;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import static java.lang.System.exit;
 
 //最后通过LuaTable向外提供接口,隐藏实际使用的底层实现(arr,map)
 public class LuaTable {

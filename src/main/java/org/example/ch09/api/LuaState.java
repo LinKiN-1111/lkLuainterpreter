@@ -1,4 +1,4 @@
-package org.example.ch07.api;
+package org.example.ch09.api;
 
 public interface LuaState {
     /* basic stack manipulation */
@@ -59,5 +59,8 @@ public interface LuaState {
     void setField(int idx, String k);
     void setI(int idx, long i);
 
+
+    ThreadStatus load(byte[] chunk, String chunkName, String mode);
+    void call(int nArgs,int nResults);
 
 }
