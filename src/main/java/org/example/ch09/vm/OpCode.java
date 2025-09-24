@@ -1,7 +1,7 @@
 package org.example.ch09.vm;
 
-import static org.example.ch08.vm.OpArgMask.*;
-import static org.example.ch08.vm.OpMode.*;
+import static org.example.ch09.vm.OpArgMask.*;
+import static org.example.ch09.vm.OpMode.*;
 
 public enum OpCode {
 
@@ -13,7 +13,7 @@ public enum OpCode {
     LOADBOOL(0, 1, OpArgU, OpArgU, iABC , Instructions::loadBool), // R(A) := (bool)B; if (C) pc++
     LOADNIL (0, 1, OpArgU, OpArgN, iABC , Instructions::loadNil ), // R(A), R(A+1), ..., R(A+B) := nil
     GETUPVAL(0, 1, OpArgU, OpArgN, iABC , null                  ), // R(A) := UpValue[B]
-    GETTABUP(0, 1, OpArgU, OpArgK, iABC , null                  ), // R(A) := UpValue[B][RK(C)]
+    GETTABUP(0, 1, OpArgU, OpArgK, iABC , Instructions::getTabUp), // R(A) := UpValue[B][RK(C)]
     GETTABLE(0, 1, OpArgR, OpArgK, iABC , Instructions::getTable), // R(A) := R(B)[RK(C)]
     SETTABUP(0, 0, OpArgK, OpArgK, iABC , null                  ), // UpValue[A][RK(B)] := RK(C)
     SETUPVAL(0, 0, OpArgU, OpArgN, iABC , null                  ), // UpValue[B] := R(A)
@@ -35,7 +35,7 @@ public enum OpCode {
     UNM     (0, 1, OpArgR, OpArgN, iABC , Instructions::unm     ), // R(A) := -R(B)
     BNOT    (0, 1, OpArgR, OpArgN, iABC , Instructions::bnot    ), // R(A) := ~R(B)
     NOT     (0, 1, OpArgR, OpArgN, iABC , Instructions::not     ), // R(A) := not R(B)
-    LEN     (0, 1, OpArgR, OpArgN, iABC , Instructions::len  ), // R(A) := length of R(B)
+    LEN     (0, 1, OpArgR, OpArgN, iABC , Instructions::len     ), // R(A) := length of R(B)
     CONCAT  (0, 1, OpArgR, OpArgR, iABC , Instructions::concat  ), // R(A) := R(B).. ... ..R(C)
     JMP     (0, 0, OpArgR, OpArgN, iAsBx, Instructions::jmp     ), // pc+=sBx; if (A) close all upvalues >= R(A - 1)
     EQ      (1, 0, OpArgK, OpArgK, iABC , Instructions::eq      ), // if ((RK(B) == RK(C)) ~= A) then pc++

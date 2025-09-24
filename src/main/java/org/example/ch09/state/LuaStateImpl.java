@@ -10,19 +10,24 @@ import java.util.Collections;
 import java.util.List;
 
 import static java.lang.System.exit;
-import static org.example.ch08.api.ThreadStatus.LUA_OK;
-import static org.example.ch08.state.LuaValue.converToFloat;
-import static org.example.ch08.state.LuaValue.typeOf;
+import static org.example.ch09.api.ThreadStatus.LUA_OK;
+import static org.example.ch09.state.LuaValue.converToFloat;
+import static org.example.ch09.state.LuaValue.typeOf;
 
 
 //这里面的操作基本上都没判断溢出的情况，因为这个情况在栈中判断了
 public class LuaStateImpl implements LuaState, LuaVM {
     //注意，这里的操作就和LUA的是一样的了，需要以1作为基地址
-    private LuaStack stack;
+    private LuaStack stack = new LuaStack();
+
+    public LuaTable registry = new LuaTable(0,0); //注册表表示
 
     //在ch08中将proto交由stack实现之后，整个解释器就直接新建一个LuaStack即可
     public LuaStateImpl() {
-        stack = new LuaStack(20);
+        registry.put(LUA_RIDX_GLOBALS, new LuaTable(0, 0));
+        LuaStack stack = new LuaStack();
+        stack.state = this;
+        pushLuaStack(stack);
     }
 
     //返回栈顶的索引
@@ -512,14 +517,41 @@ public class LuaStateImpl implements LuaState, LuaVM {
             Object o = stack.get(-(nArgs + 1));
             if(o instanceof Closure){
                 Closure closure = (Closure) o;
-                System.out.printf("call %s<%d,%d>\n", closure.getProto().getSource(),
-                        closure.getProto().getLineDefined(),closure.getProto().getLastLineDefined());
-                callLuaClosure(nArgs, nResults, closure);
+                if(((Closure) o).getProto()!=null){
+                    callLuaClosure(nArgs, nResults, closure);
+                }else{
+                    callJavaClosure(nArgs, nResults, closure);
+                }
             }else {
-                throw new RuntimeException("call error!");
+                throw new RuntimeException("not function!");
             }
         }else {
-            throw new RuntimeException("call error!");
+            throw new RuntimeException("error index!");
+        }
+
+    }
+
+    private void callJavaClosure(int nArgs, int nResults, Closure closure) {
+        LuaStack newLuaStack = new LuaStack(nArgs + 20);   //新建一个新的stack
+        newLuaStack.closure =  closure;                 //指向当前解析出来的闭包
+
+        //java function直接从
+        if(nArgs > 0){
+            List<Object> funcAndArgs = this.stack.popN(nArgs);
+            newLuaStack.pushN(funcAndArgs, nArgs);
+        }
+
+        this.stack.pop(); //弹出这个java闭包
+
+        this.pushLuaStack(newLuaStack);
+        int r = closure.getJavaproto().invoke(this);
+        popLuaStack();
+
+
+        if (nResults != 0) {
+            List<Object> results = newLuaStack.popN(r);
+            //stack.check(results.size())
+            stack.pushN(results, nResults);
         }
 
     }
@@ -637,5 +669,60 @@ public class LuaStateImpl implements LuaState, LuaVM {
             }
         }
         System.out.println();
+    }
+
+
+
+    @Override
+    public void pushJavaFunction(JavaFunction f) {
+        Closure closure = new Closure(f);
+        this.stack.push(closure);
+    }
+
+    @Override
+    public boolean isJavaFunction(int idx) {
+        Object o = this.stack.get(idx);
+        if(o instanceof Closure) {
+            return (Closure)((Closure) o).getJavaproto() != null;
+        }
+        return false;
+    }
+
+    @Override
+    public JavaFunction toJavaFunction(int idx) {
+        Object o = this.stack.get(idx);
+        if(o instanceof Closure) {
+            return ((Closure) o).getJavaproto();
+        }
+        return null;
+    }
+
+    //从注册表中获取全局环境,并存入栈中
+    @Override
+    public void pushGlobalTable() {
+        Object o = this.registry.get(LUA_RIDX_GLOBALS);
+        this.stack.push(o);
+
+        //or 这样实现        this.getI(LUA_REGISTRYINDEX,LUA_RIDX_GLOBALS);
+    }
+
+    @Override
+    public LuaType getGlobal(String name) {
+        Object o = this.registry.get(LUA_RIDX_GLOBALS);  //global
+        return getTable(o,name);
+    }
+
+    @Override
+    public void setGlobal(String name) {
+        Object t = this.registry.get(LUA_RIDX_GLOBALS);  //global
+        Object v = this.stack.pop();
+        this.setTable(t,name,v);
+    }
+
+    //这个方法用于给全局环境注册Go函数值
+    @Override
+    public void register(String name, JavaFunction f) {
+        pushJavaFunction(f);
+        this.setGlobal(name);
     }
 }

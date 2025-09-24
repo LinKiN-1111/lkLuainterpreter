@@ -4,9 +4,9 @@ import org.example.ch09.api.ArithOp;
 import org.example.ch09.api.CmpOp;
 import org.example.ch09.api.LuaVM;
 
-import static org.example.ch08.api.ArithOp.*;
-import static org.example.ch08.api.CmpOp.*;
-import static org.example.ch08.api.LuaType.LUA_TSTRING;
+import static org.example.ch09.api.ArithOp.*;
+import static org.example.ch09.api.CmpOp.*;
+import static org.example.ch09.api.LuaType.LUA_TSTRING;
 
 
 
@@ -434,5 +434,18 @@ public class Instructions {
         vm.rotate(vm.registerCount()+1,X-A);
     }
 
+
+    //先理解成从全局变量中取值翻入某个寄存器
+    // R(A) := UpValue[B][RK(C)]
+    public static void getTabUp(long i, LuaVM vm) {
+        int[] registers = Instruction.ABC(i);
+        int A = registers[0] + 1;
+        int C = registers[2];
+        vm.pushGlobalTable();
+        vm.getRK(C);
+        vm.getTable(-2);
+        vm.replace(A);
+        vm.pop(1);
+    }
 
 }

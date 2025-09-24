@@ -1,6 +1,13 @@
 package org.example.ch09.api;
 
 public interface LuaState {
+
+    int LUA_MINSTACK = 20;
+    int LUAI_MAXSTACK = 1000000;
+    int LUA_REGISTRYINDEX = -LUAI_MAXSTACK - 1000;
+    long LUA_RIDX_GLOBALS = 2;
+
+
     /* basic stack manipulation */
     int getTop();
     int absIndex(int idx);
@@ -62,5 +69,14 @@ public interface LuaState {
 
     ThreadStatus load(byte[] chunk, String chunkName, String mode);
     void call(int nArgs,int nResults);
+
+    void pushJavaFunction(JavaFunction f);
+    boolean isJavaFunction(int idx);
+    JavaFunction toJavaFunction(int idx);
+
+    void pushGlobalTable();
+    LuaType getGlobal(String name);
+    void setGlobal(String name);
+    void register(String name,JavaFunction f);
 
 }
