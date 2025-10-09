@@ -1,10 +1,8 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
-import static org.example.ch09.api.LuaState.LUA_REGISTRYINDEX;
+import static org.example.ch10.api.LuaState.LUA_REGISTRYINDEX;
 
 public class LuaStack {
     private final ArrayList<Object> slots;
@@ -16,6 +14,8 @@ public class LuaStack {
     public long pc;
     /* linked list */
     public LuaStack prev;
+
+    Map<Integer, UpvalueHolder> openuvs;
 
 
     public LuaStack(int size) {
@@ -84,7 +84,11 @@ public class LuaStack {
 
     //判断这个索引是否合法
     public boolean isValid(int index){
-        if(index < LUA_REGISTRYINDEX){
+        if(index < LUA_REGISTRYINDEX){   //小于的情况就是获取upvalue
+            int uvIdx = LUA_REGISTRYINDEX - index- 1;
+            return this.closure != null && uvIdx < closure.upvals.length;
+        }
+        if(index == LUA_REGISTRYINDEX){   //获取注册表
             return true;
         }
         int absIdx = absIndex(index);
@@ -93,6 +97,13 @@ public class LuaStack {
 
     //通过索引获取栈中元素，注意索引要-1，因为lua的数组是从1开始的
     public Object get(int index){
+        if(index < LUA_REGISTRYINDEX){
+            int uvIdx = LUA_REGISTRYINDEX - index - 1;
+            if(this.closure != null && uvIdx < closure.upvals.length && closure.upvals[uvIdx] != null){
+                return closure.upvals[uvIdx].get();
+            }
+            return null;
+        }
         if(index == LUA_REGISTRYINDEX){
             return this.state.registry;
         }
@@ -107,6 +118,15 @@ public class LuaStack {
 
     //set根据索引往栈里面写入
     public boolean set(int index,Object val){
+        if(index < LUA_REGISTRYINDEX){
+            int uvIdx = LUA_REGISTRYINDEX - index- 1;
+            if (closure != null
+                    && closure.upvals.length > uvIdx
+                    && closure.upvals[uvIdx] != null) {
+                closure.upvals[uvIdx].set(val);
+            }
+            return true;
+        }
         if(index == LUA_REGISTRYINDEX){
             this.state.registry = (LuaTable) val;
             return true;

@@ -1,12 +1,13 @@
-package org.example.ch09.vm;
+package org.example.ch10.vm;
 
-import org.example.ch09.api.ArithOp;
-import org.example.ch09.api.CmpOp;
-import org.example.ch09.api.LuaVM;
+import org.example.ch10.api.ArithOp;
+import org.example.ch10.api.CmpOp;
+import org.example.ch10.api.LuaVM;
+import org.example.ch10.state.LuaStateImpl;
 
-import static org.example.ch09.api.ArithOp.*;
-import static org.example.ch09.api.CmpOp.*;
-import static org.example.ch09.api.LuaType.LUA_TSTRING;
+import static org.example.ch10.api.ArithOp.*;
+import static org.example.ch10.api.CmpOp.*;
+import static org.example.ch10.api.LuaType.LUA_TSTRING;
 
 
 
@@ -30,7 +31,7 @@ public class Instructions {
         int sBx = registers[1];
         vm.addPC(sBx);         //直接加就行了,应该是一个相对地址,所以这么操作
         if (A != 0){
-            throw new RuntimeException("todo: jmp!");
+            vm.closeUpvalues(A);
         }
     }
 
@@ -330,7 +331,6 @@ public class Instructions {
         int A = registers[0] + 1;
         int B = registers[1];
         int C = registers[2];
-
         int nArgs = pushFuncAndArgs(A,B ,vm);  //该被调用函数和参数值推入栈顶
         vm.call(nArgs,C-1); //返回值数量由C获取?
         popResults(A,C,vm);   //把返回值移动到适当的寄存器
@@ -393,6 +393,7 @@ public class Instructions {
     }
 
     private static int pushFuncAndArgs(int A, int B, LuaVM vm) {
+
         if(B>=1){
             //若B大于0就简单了,需要传递的参数是B-1个,有一个是原型吧?
             for(int i = A; i < A + B; i++){
@@ -432,20 +433,48 @@ public class Instructions {
             vm.pushValue(j);
         }
         vm.rotate(vm.registerCount()+1,X-A);
+
+    }
+    // R(A) := UpValue[B]
+    public static void getUpval(long ins, LuaVM vm) {
+        int[] registers = Instruction.ABC(ins);
+        int A = registers[0] + 1;
+        int B = registers[1] + 1;
+        vm.copy(vm.luaUpvalueindex(B), A);
     }
 
+    //UpValue[B] := R(A)
+    public static void setUpval(long ins, LuaVM vm) {
+        int[] registers = Instruction.ABC(ins);
+        int A = registers[0] + 1;
+        int B = registers[1] + 1;
+        vm.copy(A,vm.luaUpvalueindex(B));
+    }
 
-    //先理解成从全局变量中取值翻入某个寄存器
-    // R(A) := UpValue[B][RK(C)]
+    // R(A) := UpValue[B][RK(C)]   处理Upvalue是一个表的情况
     public static void getTabUp(long i, LuaVM vm) {
         int[] registers = Instruction.ABC(i);
         int A = registers[0] + 1;
+        int B = registers[1] + 1;
         int C = registers[2];
-        vm.pushGlobalTable();
+
         vm.getRK(C);
-        vm.getTable(-2);
+        vm.getTable(vm.luaUpvalueindex(B));
         vm.replace(A);
-        vm.pop(1);
+
     }
+
+    // UpValue[A][RK(B)] := RK(C)
+    public static void setTabUp(long i, LuaVM vm) {
+        int[] registers = Instruction.ABC(i);
+        int A = registers[0] + 1;
+        int B = registers[1];
+        int C = registers[2];
+        vm.getRK(B);
+        vm.getRK(C);
+        vm.setTable(vm.luaUpvalueindex(A));
+    }
+
+
 
 }

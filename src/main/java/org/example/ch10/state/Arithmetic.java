@@ -1,7 +1,7 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
-import org.example.ch09.api.ArithOp;
-import org.example.ch09.number.LuaMath;
+import org.example.ch10.api.ArithOp;
+import org.example.ch10.number.LuaMath;
 
 import java.util.function.DoubleBinaryOperator;
 import java.util.function.LongBinaryOperator;

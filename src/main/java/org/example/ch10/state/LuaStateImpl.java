@@ -1,18 +1,21 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
-import org.example.ch09.Chunk.BinaryChunk;
-import org.example.ch09.Chunk.Prototype;
-import org.example.ch09.api.*;
-import org.example.ch09.vm.Instruction;
-import org.example.ch09.vm.OpCode;
+import org.example.ch10.Chunk.BinaryChunk;
+import org.example.ch10.Chunk.Prototype;
+import org.example.ch10.Chunk.Upvalue;
+import org.example.ch10.api.*;
+import org.example.ch10.vm.Instruction;
+import org.example.ch10.vm.OpCode;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 
 import static java.lang.System.exit;
-import static org.example.ch09.api.ThreadStatus.LUA_OK;
-import static org.example.ch09.state.LuaValue.converToFloat;
-import static org.example.ch09.state.LuaValue.typeOf;
+import static org.example.ch10.api.ThreadStatus.LUA_OK;
+import static org.example.ch10.state.LuaValue.converToFloat;
+import static org.example.ch10.state.LuaValue.typeOf;
 
 
 //这里面的操作基本上都没判断溢出的情况，因为这个情况在栈中判断了
@@ -477,7 +480,7 @@ public class LuaStateImpl implements LuaState, LuaVM {
             ((LuaTable) table).put(key, value);
             return;
         }
-        throw new RuntimeException("setTable error!");
+        throw new RuntimeException("not a LuaTable!");
     }
 
     //这里基本和上面的一样，就是键不是从栈顶弹出的任意值，而是由参数传入的字符串
@@ -503,6 +506,10 @@ public class LuaStateImpl implements LuaState, LuaVM {
             Prototype prototype = BinaryChunk.unDump(chunk);
             Closure closure = new Closure(prototype);
             this.stack.push(closure);
+            if(prototype.getUpvalues().length > 0){
+                Object env = registry.get(LUA_RIDX_GLOBALS);
+                closure.upvals[0] = new UpvalueHolder(env); // todo
+            }
         }catch (Exception e) {
             e.printStackTrace();
         }
@@ -592,10 +599,10 @@ public class LuaStateImpl implements LuaState, LuaVM {
         for(;;){
             long ins = fetch();
             OpCode opCode = Instruction.getOpCode(ins);
-//            if (opCode != org.example.ch08.vm.OpCode.RETURN) {
-//                System.out.printf("[%02d] %-8s \n", this.stack.pc, opCode.name());
-//            }
+//            System.out.printf("[%02d] %-8s \n", this.stack.pc, opCode.name());
+
             opCode.getAction().execute((int)ins,this);
+
 //            printStack();
             if (opCode == OpCode.RETURN) {
                 break;
@@ -610,15 +617,12 @@ public class LuaStateImpl implements LuaState, LuaVM {
 
     @Override
     public void loadVararg(int n) {
-
         List<Object> varargs = stack.varargs != null
                 ? stack.varargs : Collections.emptyList();
         if(n < 0){
             n = this.stack.varargs.size();
         }
-
         this.stack.pushN(varargs,n);
-
     }
 
 
@@ -627,6 +631,41 @@ public class LuaStateImpl implements LuaState, LuaVM {
         Prototype proto = this.stack.closure.getProto().getProtos()[idx];
         Closure closure = new Closure(proto);
         this.stack.push(closure);
+
+        //若Upvalue捕获的外围函数局部变量还在栈上,直接引用即可....这种Upvalue称之为开放状态
+        //反之,必须把变量实际值保存在其他地方,我们称之为闭合状态..(我们将这些变量记录在被捕获局部变量所在的栈帧中)
+        for(int i=0;i<proto.getUpvalues().length;i++){
+            Upvalue uvInfo = proto.getUpvalues()[i];
+            int uvIdx = uvInfo.getIdx();
+            if(uvInfo.getInstack() ==1){
+                if(stack.openuvs==null){
+                    stack.openuvs = new HashMap<>();
+                }
+                if(stack.openuvs.containsKey(uvIdx)){
+                    closure.upvals[i] = stack.openuvs.get(uvIdx);
+                }else{
+                    closure.upvals[i] = new UpvalueHolder(stack,uvIdx);
+                    stack.openuvs.put(uvIdx,closure.upvals[i]);
+                }
+            }else{
+                closure.upvals[i] = stack.closure.upvals[uvIdx];
+            }
+        }
+
+
+    }
+
+    @Override
+    public void closeUpvalues(int a) {
+        if(stack.openuvs!=null){
+            for(Iterator<UpvalueHolder> it = stack.openuvs.values().iterator();it.hasNext();){
+                UpvalueHolder uvInfo = it.next();
+                if(uvInfo.index>=a-1){
+                    uvInfo.migrate();
+                    it.remove();
+                }
+            }
+        }
     }
 
     //简单理解一下，每个函数对应一个栈，当前虚拟机接收了这个函数之后，生成了一个新的stack
@@ -646,7 +685,7 @@ public class LuaStateImpl implements LuaState, LuaVM {
     //   tmp
     public void printStack() {
         int top = this.getTop();
-
+        System.out.print("this stack is" + this.stack);
         for (int i = 1; i <= top; i++) {
             LuaType t = this.type(i);
             switch (t) {
@@ -675,10 +714,18 @@ public class LuaStateImpl implements LuaState, LuaVM {
 
     @Override
     public void pushJavaFunction(JavaFunction f) {
-        Closure closure = new Closure(f);
+        Closure closure = new Closure(f,0);
         this.stack.push(closure);
     }
-
+    @Override
+    public void pushJavaFunction(JavaFunction f,int n) {
+        Closure closure = new Closure(f,n);
+        for(int i=0;i<n;i++){
+            Object val = this.stack.pop();
+            closure.upvals[n-1] = new UpvalueHolder(val);
+        }
+        this.stack.push(closure);
+    }
     @Override
     public boolean isJavaFunction(int idx) {
         Object o = this.stack.get(idx);
@@ -724,5 +771,10 @@ public class LuaStateImpl implements LuaState, LuaVM {
     public void register(String name, JavaFunction f) {
         pushJavaFunction(f);
         this.setGlobal(name);
+    }
+
+    @Override
+    public int luaUpvalueindex(int i) {
+        return LUA_REGISTRYINDEX - i;
     }
 }

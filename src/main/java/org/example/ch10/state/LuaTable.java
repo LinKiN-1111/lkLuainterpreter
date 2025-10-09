@@ -1,6 +1,6 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
-import org.example.ch09.number.LuaParser;
+import org.example.ch10.number.LuaParser;
 
 import java.util.ArrayList;
 import java.util.HashMap;

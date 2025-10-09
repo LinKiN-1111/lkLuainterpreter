@@ -1,4 +1,4 @@
-package org.example.ch09.api;
+package org.example.ch10.api;
 
 public interface LuaState {
 
@@ -71,12 +71,14 @@ public interface LuaState {
     void call(int nArgs,int nResults);
 
     void pushJavaFunction(JavaFunction f);
+    void pushJavaFunction(JavaFunction f,int n);
     boolean isJavaFunction(int idx);
     JavaFunction toJavaFunction(int idx);
 
     void pushGlobalTable();
     LuaType getGlobal(String name);
     void setGlobal(String name);
-    void register(String name,JavaFunction f);
+    void register(String name, JavaFunction f);
 
+    int luaUpvalueindex(int i);
 }

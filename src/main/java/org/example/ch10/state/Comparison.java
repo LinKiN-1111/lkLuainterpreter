@@ -1,4 +1,4 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
 public class Comparison {
 

@@ -1,9 +1,9 @@
-package org.example.ch09.state;
+package org.example.ch10.state;
 
-import org.example.ch09.api.LuaType;
-import org.example.ch09.number.LuaParser;
+import org.example.ch10.api.LuaType;
+import org.example.ch10.number.LuaParser;
 
-import static org.example.ch09.api.LuaType.*;
+import static org.example.ch10.api.LuaType.*;
 
 //这里的意思好像是说将java类型转化为lua类型
 public class LuaValue {

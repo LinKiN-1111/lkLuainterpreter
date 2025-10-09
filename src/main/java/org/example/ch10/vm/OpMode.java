@@ -1,4 +1,4 @@
-package org.example.ch09.vm;
+package org.example.ch10.vm;
 
 //只有sBx的操作数会被解释为有符号整数,其它都是无符号
 public enum OpMode {

@@ -1,4 +1,4 @@
-package org.example.ch09.Chunk;
+package org.example.ch10.Chunk;
 
 //注意这里可能会有bug,因为pc是uint32类型,由于java的问题被我改了....这里用long存,因为不考虑长度了
 public class LocVar {

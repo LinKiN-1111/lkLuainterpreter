@@ -1,8 +1,8 @@
-package org.example.ch09;
+package org.example.ch10;
 
-import org.example.ch09.api.LuaState;
-import org.example.ch09.api.LuaType;
-import org.example.ch09.state.LuaStateImpl;
+import org.example.ch10.api.LuaState;
+import org.example.ch10.api.LuaType;
+import org.example.ch10.state.LuaStateImpl;
 
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -10,10 +10,10 @@ import java.nio.file.Paths;
 
 public class main {
     public static void main(String[] args) throws Exception {
-        String test = "C:\\Users\\linkin\\OneDrive\\luainterpreter\\lua\\ch09\\luac.out";
+        String test = "C:\\Users\\linkin\\OneDrive\\luainterpreter\\lua\\ch10\\luac.out";
         byte[] data =  Files.readAllBytes(Paths.get(test));
         LuaState ls = new LuaStateImpl();           //创建虚拟机
-        ls.register("printf", main::print);   //全局变量设置print,java这样就能够传递了
+        ls.register("print", main::print);   //全局变量设置printf,那么就能调用大java函数了
         ls.load(data, "main", "b");
         ls.call(0, 0);
     }

@@ -1,4 +1,4 @@
-package org.example.ch09.api;
+package org.example.ch10.api;
 
 //Java中的接口只负责定义方法,而不负责定义存在的属性
 public interface LuaVM extends LuaState {
@@ -12,4 +12,6 @@ public interface LuaVM extends LuaState {
     void loadVararg(int n);
     void loadProto(int idx);
 
+    void closeUpvalues(int a);
+    void printStack();
 }

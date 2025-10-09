@@ -1,4 +1,4 @@
-package org.example.ch09.vm;
+package org.example.ch10.vm;
 
 //该类定义了所有的指令特征
 public class Instruction {

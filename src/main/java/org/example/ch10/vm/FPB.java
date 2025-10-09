@@ -1,4 +1,4 @@
-package org.example.ch09.vm;
+package org.example.ch10.vm;
 
 //Floating Point Byte编码
 public class FPB {
